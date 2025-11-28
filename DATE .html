@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Date Adventure 💜</title>
+<style>
+body { margin:0; padding:0; font-family: Arial,sans-serif; background:#f4f0ff; color:#5b3e91; text-align:center; overflow-x:hidden; }
+.screen { display:none; padding:25px; }
+.screen.active { display:block; }
+h1 { color:#724acb; }
+button { background:#bca2ff; color:white; padding:12px 25px; border:none; border-radius:10px; font-size:18px; cursor:pointer; margin-top:20px; }
+button:hover { background:#9879ff; }
+.card-container { display:flex; flex-wrap:wrap; justify-content:center; gap:18px; margin-top:30px; }
+.card { background:white; width:140px; padding:20px; border-radius:16px; box-shadow:0 4px 10px rgba(0,0,0,0.12); cursor:pointer; transition:.2s; font-size:18px; }
+.card:hover { transform: scale(1.07); background:#f1e7ff; }
+.card span { display:block; font-size:40px; margin-bottom:10px; }
+#gameArea { position:relative; width:100%; height:420px; background:#e9dfff; overflow:hidden; border-radius:10px; margin:auto; }
+.basket { width:90px; position:absolute; bottom:10px; left:50%; transform:translateX(-50%); height:40px; background:#724acb; border-radius:10px; }
+.falling { position:absolute; top:-50px; width:45px; font-size:38px; }
+.floatingHeart { position:absolute; color:#d9c8ff; font-size:20px; animation: floatUp 4s linear infinite; }
+@keyframes floatUp { 0% { transform: translateY(100%); opacity:1; } 100% { transform: translateY(-50px); opacity:0; } }
+
+.flip-container { display:flex; justify-content:center; gap:15px; flex-wrap:wrap; margin-top:30px; }
+.flip-card { width:120px; height:160px; perspective:1000px; cursor:pointer; }
+.flip-card-inner { position:relative; width:100%; height:100%; transition: transform 0.6s; transform-style: preserve-3d; }
+.flip-card-inner.flipped { transform: rotateY(180deg); }
+.flip-card-front, .flip-card-back {
+    position:absolute; width:100%; height:100%; backface-visibility:hidden;
+    border-radius:12px; display:flex; align-items:center; justify-content:center;
+    font-size:20px; box-shadow:0 4px 8px rgba(0,0,0,0.2);
+}
+.flip-card-front { background:#bca2ff; color:white; font-size:40px; }
+.flip-card-back { background:#d4b3ff; transform: rotateY(180deg); color:#5b3e91; font-size:18px; text-align:center; padding:10px; }
+
+.balloon { position:absolute; border-radius:50%; padding:15px; color:white; font-weight:bold; cursor:pointer; text-align:center; font-size:14px; box-shadow:0 4px 6px rgba(0,0,0,0.2); user-select:none; transition: transform 0.2s; }
+.balloon:active { transform: scale(0.8); }
+
+input { padding:10px; font-size:16px; border-radius:8px; border:1px solid #ccc; }
+</style>
+</head>
+<body>
+
+<!-- SCREEN 0: NAME -->
+<div id="screen0" class="screen active">
+    <h1>Welcome! 💜</h1>
+    <p>Please enter your name:</p>
+    <input type="text" id="nameInput" placeholder="Your name">
+    <br><button onclick="startGame()">Start</button>
+</div>
+
+<!-- SCREEN 1: HEART CATCH -->
+<div id="screen1" class="screen">
+    <h1>Catch Only The Hearts 💜</h1>
+    <p id="catchText"></p>
+    <div id="gameArea"><div id="basket" class="basket"></div></div>
+    <p class="scoreDisplay">Hearts: <span id="score">0</span> / 12</p>
+</div>
+
+<!-- SCREEN 2: VIBE -->
+<div id="screen2" class="screen">
+    <h1 id="vibeTitle"></h1>
+    <div class="card-container">
+        <div class="card" onclick="chooseVibe('Indoor')"><span>🏠</span>Indoor</div>
+        <div class="card" onclick="chooseVibe('Outdoor')"><span>🌤</span>Outdoor</div>
+    </div>
+</div>
+
+<!-- SCREEN 3: ACTIVITY -->
+<div id="screen3" class="screen">
+    <h1 id="activityTitle"></h1>
+    <div class="card-container" id="activityCards"></div>
+</div>
+
+<!-- SCREEN 4: FLIP CARDS -->
+<div id="screen4" class="screen">
+    <h1>Pick a Card 💜</h1>
+    <p id="cardText"></p>
+    <div class="flip-container" id="flipContainer"></div>
+</div>
+
+<!-- SCREEN 5: BALLOONS -->
+<div id="screen5" class="screen">
+    <h1 id="balloonTitle"></h1>
+    <p id="balloonSub"></p>
+    <div id="balloonArea" style="position:relative; width:100%; height:400px; margin:auto; border-radius:10px; background:#f4edff; overflow:hidden;"></div>
+</div>
+
+<!-- SCREEN 6: SUMMARY -->
+<div id="screen6" class="screen">
+    <h1 id="summaryTitle"></h1>
+    <div id="summary" style="font-size:20px; margin-top:20px;"></div>
+    <p style="margin-top:25px; font-size:18px; color:#5b3c9b;">Take a screenshot & send it! 📸</p>
+    <button onclick="restart()">Play Again</button>
+    <div id="heartsContainer" style="position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none;"></div>
+</div>
+
+<script>
+// GLOBAL VARIABLES
+let playerName="", chosenVibe="", chosenActivity="", chosenPrize="";
+let score=0;
+const neededHearts=12;
+const heart="❤️";
+const badItems=["🍿","🥤","🍦"];
+
+// START GAME
+function startGame(){
+    const input=document.getElementById("nameInput");
+    if(input.value.trim()===""){ alert("Please enter your name!"); return; }
+    playerName=input.value.trim();
+    document.getElementById("catchText").textContent=`Move the basket & catch ONLY hearts, ${playerName}. Avoid popcorn, drinks & ice cream 😉`;
+    goToScreen(1);
+}
+
+// HEART CATCH
+const basket=document.getElementById("basket");
+const gameArea=document.getElementById("gameArea");
+document.addEventListener("mousemove",(e)=>{
+    let rect=gameArea.getBoundingClientRect();
+    let x=e.clientX-rect.left;
+    if(x>0 && x<rect.width-90) basket.style.left=x+"px";
+});
+document.addEventListener("touchmove",(e)=>{
+    let touch=e.touches[0];
+    let rect=gameArea.getBoundingClientRect();
+    let x=touch.clientX-rect.left;
+    if(x>0 && x<rect.width-90) basket.style.left=x+"px";
+});
+function updateScore(delta){
+    score += delta;
+    if(score<0) score=0;
+    document.getElementById("score").textContent=score;
+}
+function createFallingIcon(){
+    const icon=document.createElement("div");
+    icon.classList.add("falling");
+    let isHeart=Math.random()<0.6;
+    icon.textContent=isHeart?heart:badItems[Math.floor(Math.random()*badItems.length)];
+    icon.style.left=Math.random()*(gameArea.clientWidth-40)+"px";
+    gameArea.appendChild(icon);
+    let fallInterval=setInterval(()=>{
+        icon.style.top=(icon.offsetTop+4)+"px";
+        const iconRect=icon.getBoundingClientRect();
+        const basketRect=basket.getBoundingClientRect();
+        if(iconRect.bottom>=basketRect.top && iconRect.left<basketRect.right && iconRect.right>basketRect.left){
+            if(icon.textContent===heart) updateScore(1); else updateScore(-1);
+            icon.remove(); clearInterval(fallInterval);
+            if(score>=neededHearts) goToScreen(2);
+        }
+        if(icon.offsetTop>gameArea.clientHeight){ icon.remove(); clearInterval(fallInterval); }
+    },20);
+}
+setInterval(createFallingIcon,900);
+
+// SCREEN SWITCH
+function goToScreen(n){
+    document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));
+    const screen=document.getElementById("screen"+n);
+    screen.classList.add("active");
+    if(n===2) document.getElementById("vibeTitle").textContent=`Hi ${playerName}, choose our date vibe 💛`;
+    if(n===4) document.getElementById("cardText").textContent=`Pick a card, ${playerName}, and reveal your surprise!`;
+    if(n===5){ document.getElementById("balloonTitle").textContent=`Pop the Balloons 🎈`; document.getElementById("balloonSub").textContent=`Tap each balloon, ${playerName}.`; initBalloons(); }
+    if(n===6) showSummary();
+}
+
+// VIBE & ACTIVITY
+function chooseVibe(type){
+    chosenVibe=type;
+    goToScreen(3);
+    document.getElementById("activityTitle").textContent=`Choose a ${type} Activity 🏠`;
+    loadActivityCards(type);
+}
+function loadActivityCards(type){
+    const container=document.getElementById("activityCards");
+    container.innerHTML="";
+    let activities=type==="Indoor"?[
+        {icon:"🎨",name:"Sip & Paint"},
+        {icon:"🏰",name:"Blanket Fort + Treats"},
+        {icon:"🍳",name:"Cook Together"},
+        {icon:"🎬",name:"Movie Night"}
+    ]:[
+        {icon:"🎥",name:"Cinema"},
+        {icon:"☕",name:"Coffee Date"},
+        {icon:"🍦",name:"Ice Cream Date"}
+    ];
+    activities.forEach(act=>{
+        let card=document.createElement("div");
+        card.classList.add("card");
+        card.innerHTML=`<span>${act.icon}</span>${act.name}`;
+        card.onclick=()=>{ chosenActivity=act.name; goToScreen(4); createFlipCards(); };
+        container.appendChild(card);
+    });
+}
+
+// FLIP CARD MECHANIC
+let cardChosen = false;
+const rewards = ["1000 Kisses 💋","Hug Coupon 🤗","Massage 💆","Sweet Treat 🍫","Funny Story 😂","Mystery Prize ✨"];
+
+function createFlipCards(){
+    cardChosen = false;
+    const container = document.getElementById("flipContainer");
+    container.innerHTML = "";
+    const shuffled = [...rewards].sort(()=>0.5-Math.random());
+
+    shuffled.forEach(reward => {
+        const card = document.createElement("div");
+        card.classList.add("flip-card");
+
+        const inner = document.createElement("div");
+        inner.classList.add("flip-card-inner");
+
+        const front = document.createElement("div");
+        front.classList.add("flip-card-front");
+        front.textContent = "💜";
+
+        const back = document.createElement("div");
+        back.classList.add("flip-card-back");
+
+        inner.appendChild(front);
+        inner.appendChild(back);
+        card.appendChild(inner);
+        container.appendChild(card);
+
+        card.onclick = () => {
+            if(cardChosen) return;
+            cardChosen = true;
+            back.textContent = reward;
+            inner.classList.add("flipped");
+            chosenPrize = reward;
+            setTimeout(()=>{ goToScreen(5); }, 800);
+        };
+    });
+}
+
+// BALLOON POP
+const phrases=["You're so dumb","I'm judging you","I don't like boys","I love you","You're the prize","Sleep is overrated"];
+let balloons=[];
+function createBalloons(){
+    const area=document.getElementById("balloonArea");
+    balloons=[]; area.innerHTML="";
+    const colors=["#b37aff","#d4b3ff","#c9a0ff","#bd8cff","#e0c8ff","#a866ff"];
+    phrases.forEach((text,i)=>{
+        const balloon=document.createElement("div");
+        balloon.classList.add("balloon");
+        balloon.style.background=colors[i%colors.length];
+        balloon.textContent="";
+        balloon.style.left=Math.random()*(area.clientWidth-100)+"px";
+        balloon.style.top=Math.random()*(area.clientHeight-50)+"px";
+        balloon.vx=(Math.random()*2+1)*(Math.random()<0.5?1:-1);
+        balloon.vy=(Math.random()*2+1)*(Math.random()<0.5?1:-1);
+        balloon.onclick=()=>{
+            balloon.textContent=text;
+            setTimeout(()=>{
+                balloon.remove();
+                balloons=balloons.filter(b=>b!==balloon);
+                if(balloons.length===0) goToScreen(6);
+            },800);
+        };
+        area.appendChild(balloon); balloons.push(balloon);
+    });
+    requestAnimationFrame(moveBalloons);
+}
+function moveBalloons(){
+    const area=document.getElementById("balloonArea");
+    balloons.forEach(balloon=>{
+        let x=parseFloat(balloon.style.left), y=parseFloat(balloon.style.top);
+        x+=balloon.vx; y+=balloon.vy;
+        if(x<=0 || x+balloon.offsetWidth>=area.clientWidth) balloon.vx*=-1;
+        if(y<=0 || y+balloon.offsetHeight>=area.clientHeight) balloon.vy*=-1;
+        balloon.style.left=x+"px"; balloon.style.top=y+"px";
+    });
+    if(balloons.length>0) requestAnimationFrame(moveBalloons);
+}
+function initBalloons(){ createBalloons(); }
+
+// SUMMARY
+function showSummary(){
+    const summary=document.getElementById("summary");
+    document.getElementById("summaryTitle").textContent=`All Set, ${playerName} 💜`;
+    summary.innerHTML=`<strong>Vibe:</strong> ${chosenVibe}<br><strong>Activity:</strong> ${chosenActivity}<br><strong>Reward:</strong> ${chosenPrize} 💖`;
+    const container=document.getElementById("heartsContainer");
+    container.innerHTML="";
+    for(let i=0;i<15;i++){
+        const heart=document.createElement("div");
+        heart.classList.add("floatingHeart");
+        heart.style.left=Math.random()*window.innerWidth+"px";
+        heart.style.fontSize=(12+Math.random()*15)+"px";
+        heart.textContent="💜";
+        container.appendChild(heart);
+    }
+}
+
+// RESTART
+function restart(){
+    playerName=""; chosenVibe=""; chosenActivity=""; chosenPrize=""; score=0;
+    document.getElementById("score").textContent=score;
+    document.getElementById("nameInput").value="";
+    goToScreen(0);
+}
+</script>
+
+</body>
+</html>
